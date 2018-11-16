@@ -20,6 +20,7 @@ BATCH_SIZE = 20
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.995
+MAX_EPOCHS = 40
 
 
 class DQNSolver:
@@ -64,10 +65,13 @@ def cartpole():
     env = gym.make(ENV_NAME)
     score_logger = ScoreLogger(ENV_NAME)
     observation_space = env.observation_space.shape[0]
+    print("observation_space = ", observation_space)
     action_space = env.action_space.n
+    print("action_space = ", action_space)
     dqn_solver = DQNSolver(observation_space, action_space)
     run = 0
-    while True:
+    # while True:
+    while(run < MAX_EPOCHS):
         run += 1
         state = env.reset()
         state = np.reshape(state, [1, observation_space])
@@ -82,7 +86,7 @@ def cartpole():
             dqn_solver.remember(state, action, reward, state_next, terminal)
             state = state_next
             if terminal:
-                print "Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step)
+                print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 score_logger.add_score(step, run)
                 break
             dqn_solver.experience_replay()
