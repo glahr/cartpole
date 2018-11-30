@@ -7,10 +7,45 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.optimizers import Adam
-# from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard
 import time
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
-# from scores.score_logger import ScoreLogger
+class My_Callback(keras.callbacks.Callback):
+    def __init__(self):
+        self.losses = []
+
+    def on_train_begin(self, logs={}):
+        # print(logs.get('loss'))
+        # if len(logs) == 0:
+        #     self.losses = []
+        # print(" ")
+        return
+
+    def on_train_end(self, logs={}):
+        return
+
+    def on_epoch_begin(self, epoch, logs={}):
+        # print(extra)
+        return
+
+    def on_epoch_end(self, epoch, logs={}):
+        # print("epoch = ", epoch)
+        # print(logs.get('loss'))
+        return
+
+    def on_batch_begin(self, batch, logs={}):
+        # print(logs.get('loss'))
+        # print(batch)
+        return
+
+    def on_batch_end(self, batch, logs={}):
+        # print("batch = ", batch)
+        # self.losses.append(logs.get('loss'))
+        self.losses = logs.get('loss')
+        # print(len(self.losses))
+        return
 
 ENV_NAME = "CartPole-v1"
 
@@ -23,9 +58,10 @@ BATCH_SIZE = 20
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.999
-MAX_EPOCHS = 400
+MAX_EPOCHS = 100
 
-# tensorboard = TensorBoard(log_dir="logs/1")
+tensorboard = TensorBoard(log_dir="logs/1")
+
 
 
 class DQNSolver:
@@ -41,15 +77,16 @@ class DQNSolver:
         # self.model.add(Dense(action_space, activation="linear"))
         # self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
 
+        self.my_cb = My_Callback()
+
         self.model = Sequential()
         self.model.add(LSTM(1, input_shape = (1, observation_space), return_sequences = True))
         self.model.add(LSTM(1, return_sequences = True))
         self.model.add(LSTM(1))
         self.model.add(Dense(action_space, activation = "relu"))
-        self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
+        self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))#, metrics = [metrics.self.my_cb.losses])
 
-
-        keras.callbacks.TensorBoard(log_dir='./logs/1', embeddings_freq=1)
+        # self.tensorboard = keras.callbacks.TensorBoard(log_dir='./logs/1', embeddings_freq=1)
 
 
         # # RNN
@@ -112,7 +149,10 @@ class DQNSolver:
             #And by storing, we mean, training with this new set our model: here is supervised learning
             # self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
             #self.model.fit(state, q_values, verbose=0) #, callbacks = [tensorboard])
-            self.model.fit(state, q_values, verbose=0) #, callbacks = [tensorboard])
+            self.model.fit(state, q_values, verbose=0, callbacks = [self.my_cb])#, tensorboard])
+            # print(self.my_cb.losses)
+        # tf.summary.scalar("loss", self.my_cb.losses[-1])
+        # tf.summary.merge_all()
             #self.model_rnn.fit(np.reshape(state,(1,4,1)), q_values, verbose = 0)
 
             #RNN train
@@ -122,7 +162,7 @@ class DQNSolver:
         self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
 
 
-
+writer = tf.summary.FileWriter("log/1")
 
 def cartpole():
     env = gym.make(ENV_NAME)
@@ -134,6 +174,8 @@ def cartpole():
     dqn_solver = DQNSolver(observation_space, action_space)
     run = 0
 
+    my_log = []
+
     # with sess:
     # sess = tf.Session()
 
@@ -144,8 +186,8 @@ def cartpole():
     # merged = tf.summary.merge_all()
     # writer = tf.summary.FileWriter('tensorboard/3')
     # writer.add_graph(sess.graph)
-    while True:
-    # while(run < MAX_EPOCHS):
+    # while True:
+    while(run < MAX_EPOCHS):
         run += 1 #new episode
         state = env.reset()  # resetting the environment so it doesn't start with previous states
         state = np.reshape(state, [1, observation_space]) #reshaping for a row vector
@@ -170,9 +212,15 @@ def cartpole():
             state = state_next #update of the next state
             if terminal: #if it is over, he plots the final condition and breaks the inner true loop
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
-                # score_logger.add_score(step, run) #this is his score logger, it is not needed
+                # if len(dqn_solver.my_cb.losses) > 0:
+                my_log.append(dqn_solver.my_cb.losses)
+                # print(dqn_solver.my_cb.losses)
+                # score_logger.add_score(step, run) #this is his score logger, it is not needed)
                 break
             dqn_solver.experience_replay() #at the end of the step, he runs the experience replay to train
+
+    plt.plot(my_log)
+    plt.show()
 
 
 if __name__ == "__main__":
