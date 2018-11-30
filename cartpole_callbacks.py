@@ -48,7 +48,8 @@ class DQNSolver:
         self.model.add(Dense(action_space, activation = "relu"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
 
-        # keras.callbacks.TensorBoard(log_dir='./logs/1', update_freq='epoch')
+
+        keras.callbacks.TensorBoard(log_dir='./logs/1', embeddings_freq=1)
 
 
         # # RNN
