@@ -8,7 +8,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 import tensorflow as tf
 import time
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 
 ENV_NAME = "CartPole-v1"
 
@@ -22,6 +22,8 @@ EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.999
 MAX_EPOCHS = 40
+
+
 
 class DQNSolver:
 
@@ -41,29 +43,25 @@ class DQNSolver:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    # def act_mlp(self, state):
-    #     if np.random.rand() < self.exploration_rate:
-    #         return random.randrange(self.action_space)
-    #     # q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
-    #     # q_values = self.model.predict(state)
-    #     q_values = self.model_copy.predict(state)
-    #     return np.argmax(q_values[0])
+    def experience_replay(self, q_remember):
+        print("entrei aqui")
+        if not q_remember.empty():
+            if len(self.memory) < BATCH_SIZE:
+                return
+            batch = random.sample(self.memory, BATCH_SIZE)
+            for state, action, reward, state_next, terminal in batch:
+                q_update = reward
+                if not terminal:
+                    q_update = (reward + GAMMA * np.amax(self.model.predict(state_next)[0]))
+                q_values = self.model.predict(state)
+                q_values[0][action] = q_update
 
-    def experience_replay(self):
-        if len(self.memory) < BATCH_SIZE:
-            return
-        batch = random.sample(self.memory, BATCH_SIZE)
-        for state, action, reward, state_next, terminal in batch:
-            q_update = reward
-            if not terminal:
-                q_update = (reward + GAMMA * np.amax(self.model.predict(state_next)[0]))
-            q_values = self.model.predict(state)
-            q_values[0][action] = q_update
+                self.model.fit(state, q_values, verbose=0)
 
-            self.model.fit(state, q_values, verbose=0)
-
-        self.exploration_rate *= EXPLORATION_DECAY
-        self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
+            self.exploration_rate *= EXPLORATION_DECAY
+            self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
+        else:
+            print("fila vazia, mano!")
 
     def copy_keras_model(self):
         self.model_copy = keras.models.clone_model(self.model)
@@ -85,6 +83,9 @@ class DQNActions:
         q_values = self.model.predict(state)
         return np.argmax(q_values[0])
 
+    # def remember(self, state, action, reward, next_state, done):
+
+
 def cartpole():
     env = gym.make(ENV_NAME)
     observation_space = env.observation_space.shape[0]
@@ -95,7 +96,11 @@ def cartpole():
     run = 0
 
     # multiprocessing
-    # process_train_mlp = Process(target=dqn_solver.experience_replay, args=())
+    q_remember = Queue()
+    process_train_mlp = Process(target=dqn_solver.experience_replay, args=(q_remember,))
+
+    process_train_mlp.start()
+
 
     while True:
     # while(run < MAX_EPOCHS):
@@ -119,7 +124,8 @@ def cartpole():
             if terminal:
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 break
-            dqn_solver.experience_replay()
+
+        # dqn_solver.experience_replay()
 
         dqn_solver.exploration_rate *= EXPLORATION_DECAY
         dqn_solver.exploration_rate = max(EXPLORATION_MIN, dqn_solver.exploration_rate)
