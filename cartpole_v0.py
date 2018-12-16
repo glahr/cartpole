@@ -45,7 +45,7 @@ class DQNSolver:
         self.X = tf.placeholder("float", [None, timesteps, num_input], name="X_plc")
         self.Y = tf.placeholder("float", [None, action_space], name="Y_plc")
         n_h1 = 20
-        n_h2 = 5
+        n_h2 = 2
         n_cells_layers = [n_h2]
         lstm_cells = [tf.nn.rnn_cell.LSTMCell(num_units=n_) for n_ in n_cells_layers]
         multi_lstm_cell = tf.nn.rnn_cell.MultiRNNCell(lstm_cells)
@@ -53,9 +53,10 @@ class DQNSolver:
         self.fc = tf.contrib.layers.fully_connected(outputs[:,-1], action_space, activation_fn = None, scope="my_fully_connected")
         # self.prediction = tf.nn.softmax()
         # with tf.name_scope("metrics"):
-        xentropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.fc, labels=self.Y, name="xentropy")
-        optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
-        self.loss_op = tf.reduce_mean(xentropy, name="loss_op")
+        self.xentropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.fc, labels=self.Y, name="xentropy")
+        #tf.summary.scalar("xentropy", self.xentropy)
+        optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE*10)
+        self.loss_op = tf.reduce_mean(self.xentropy, name="loss_op")
         tf.summary.scalar("loss", self.loss_op)
 
             # prediction = tf.nn.softmax(self.fc, name = "prediction")
@@ -92,6 +93,7 @@ class DQNSolver:
             if not terminal:
                 q_update = (reward + GAMMA * np.amax(self.model.predict(state_next)[0]))
             q_values = self.model.predict(state)
+            #tf.summary.scalar("q_values", q_values)
             q_values[0][action] = q_update
 
 
@@ -100,7 +102,11 @@ class DQNSolver:
             #RNN train
             # print("state_reshape = ",state.reshape((1,1,4)))
             # print("q_values = ", q_values)
+            #result = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
+            #print("antes 1 = ", result)
             sess.run(self.train_op, feed_dict = {self.X: state.reshape((1,1,4)), self.Y: q_values})
+            #result = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
+            #print("depois = ", result)
 
         self.exploration_rate *= EXPLORATION_DECAY
         self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
@@ -138,12 +144,12 @@ def cartpole():
 
             if step % 2 == 0:
                 summary = sess.run(merged, feed_dict = {dqn_solver.X: state.reshape((1,1,4)), dqn_solver.Y: [[None, action]]})
-                writer.add_summary(summary, step)
+                writer.add_summary(summary)
                 # writer.flush()
 
             action = dqn_solver.act_mlp(state)
             action_rnn = dqn_solver.act_rnn(state)
-            # action = action_rnn
+            action = action_rnn
             # print("mlp = ", action)
             # print("rnn = ", action_rnn)
             state_next, reward, terminal, info = env.step(action)
