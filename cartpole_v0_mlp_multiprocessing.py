@@ -41,13 +41,13 @@ class DQNSolver:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def act_mlp(self, state):
-        if np.random.rand() < self.exploration_rate:
-            return random.randrange(self.action_space)
-        # q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
-        # q_values = self.model.predict(state)
-        q_values = self.model_copy.predict(state)
-        return np.argmax(q_values[0])
+    # def act_mlp(self, state):
+    #     if np.random.rand() < self.exploration_rate:
+    #         return random.randrange(self.action_space)
+    #     # q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
+    #     # q_values = self.model.predict(state)
+    #     q_values = self.model_copy.predict(state)
+    #     return np.argmax(q_values[0])
 
     def experience_replay(self):
         if len(self.memory) < BATCH_SIZE:
@@ -68,6 +68,22 @@ class DQNSolver:
     def copy_keras_model(self):
         self.model_copy = keras.models.clone_model(self.model)
         self.model_copy.set_weights(self.model.get_weights())
+        return self.model_copy
+
+class DQNActions:
+
+    def __init__(self, exploration_rate, action_space, model):
+        self.exploration_rate = exploration_rate
+        self.action_space = action_space
+        self.model = model
+
+    def act_mlp(self, state):
+        if np.random.rand() < self.exploration_rate:
+            return random.randrange(self.action_space)
+        # q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
+        # q_values = self.model.predict(state)
+        q_values = self.model.predict(state)
+        return np.argmax(q_values[0])
 
 def cartpole():
     env = gym.make(ENV_NAME)
@@ -79,7 +95,7 @@ def cartpole():
     run = 0
 
     # multiprocessing
-    process_train_mlp = Process(target=dqn_solver.experience_replay, args=())
+    # process_train_mlp = Process(target=dqn_solver.experience_replay, args=())
 
     while True:
     # while(run < MAX_EPOCHS):
@@ -87,16 +103,14 @@ def cartpole():
         state = env.reset()
         state = np.reshape(state, [1, observation_space])
         step = 0
-        dqn_solver.copy_keras_model()
-
-        dqn_solver.exploration_rate *= EXPLORATION_DECAY
-        dqn_solver.exploration_rate = max(EXPLORATION_MIN, dqn_solver.exploration_rate)
+        # dqn_solver.copy_keras_model()
+        dqn_actions = DQNActions(dqn_solver.exploration_rate, action_space, dqn_solver.copy_keras_model())
 
         while True:
             step += 1
             #env.render()
 
-            action = dqn_solver.act_mlp(state)
+            action = dqn_actions.act_mlp(state)
             state_next, reward, terminal, info = env.step(action)
             reward = reward if not terminal else -reward
             state_next = np.reshape(state_next, [1, observation_space])
@@ -106,6 +120,9 @@ def cartpole():
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 break
             dqn_solver.experience_replay()
+
+        dqn_solver.exploration_rate *= EXPLORATION_DECAY
+        dqn_solver.exploration_rate = max(EXPLORATION_MIN, dqn_solver.exploration_rate)
 
 if __name__ == "__main__":
     cartpole()
