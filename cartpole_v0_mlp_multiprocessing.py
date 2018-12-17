@@ -62,7 +62,7 @@ class DQNSolver:
             done = aux[4]
             self.exploration_rate = aux[5]
             self.remember(state, action, reward, next_state, done)
-            
+
             self.counter += 1
             if self.counter%1000 == 0:
                 print("counter = ", self.counter)
@@ -88,6 +88,7 @@ class DQNSolver:
     # def copy_keras_model(self):
             # self.model_copy = keras.models.clone_model(self.model)
             # self.model_copy.set_weights(self.model.get_weights())
+
             self.q_net_weights.put(self.model.get_weights())
         # return self.model_copy
 
@@ -122,6 +123,7 @@ class DQNActions:
 def experience_replay(observation_space, action_space, q_remember, q_net_weights):
     dqn_solver = DQNSolver(observation_space, action_space, q_remember, q_net_weights)
     while True:
+        # print("AQUI")
         dqn_solver.experience_replay()
 
 def cartpole(q_remember, q_net_weights):
@@ -171,8 +173,8 @@ def cartpole(q_remember, q_net_weights):
 if __name__ == "__main__":
 
     # multiprocessing
-    q_remember = Queue()
-    q_net_weights = Queue()
+    q_remember = Queue(maxsize = 2)
+    q_net_weights = Queue(maxsize = 1)
     process_simulation = Process(target=cartpole, args=(q_remember, q_net_weights))
     process_train_mlp = Process(target=experience_replay, args=(observation_space, action_space, q_remember, q_net_weights))
     process_simulation.start()
