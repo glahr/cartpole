@@ -20,7 +20,7 @@ BATCH_SIZE = 20
 
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
-EXPLORATION_DECAY = 0.999
+EXPLORATION_DECAY = 0.995
 MAX_EPOCHS = 40
 
 
@@ -52,10 +52,12 @@ class DQNSolver:
             reward = aux[2]
             next_state = aux[3]
             done = aux[4]
+            self.exploration_rate = aux[5]
             self.remember(state, action, reward, next_state, done)
 
         if len(self.memory) < BATCH_SIZE:
             return
+
         batch = random.sample(self.memory, BATCH_SIZE)
         for state, action, reward, state_next, terminal in batch:
             q_update = reward
@@ -68,8 +70,8 @@ class DQNSolver:
 
         # print("original = ", self.model.get_weights())
 
-        self.exploration_rate *= EXPLORATION_DECAY
-        self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
+        # self.exploration_rate *= EXPLORATION_DECAY
+        # self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
 
     def copy_keras_model(self):
         self.model_copy = keras.models.clone_model(self.model)
@@ -107,6 +109,8 @@ def cartpole(q_remember):
     dqn_solver = DQNSolver(observation_space, action_space, q_remember)
     run = 0
 
+    exploration_rate = EXPLORATION_MAX
+
     while True:
     # while(run < MAX_EPOCHS):
         run += 1
@@ -114,24 +118,24 @@ def cartpole(q_remember):
         state = np.reshape(state, [1, observation_space])
         step = 0
         # dqn_solver.copy_keras_model()
-        dqn_actions = DQNActions(dqn_solver.exploration_rate, action_space, dqn_solver.copy_keras_model())
+        dqn_actions = DQNActions(exploration_rate, action_space, dqn_solver.copy_keras_model())
 
         while True:
             step += 1
-            #env.render()
-
             action = dqn_actions.act_mlp(state)
             # print("action_copied = ", action)
             state_next, reward, terminal, info = env.step(action)
             reward = reward if not terminal else -reward
             state_next = np.reshape(state_next, [1, observation_space])
             # dqn_solver.remember(state, action, reward, state_next, terminal)
-            q_remember.put([state, action, reward, state_next, terminal])
+            q_remember.put([state, action, reward, state_next, terminal, exploration_rate])
             state = state_next
             if terminal:
-                print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
+                print ("Run: " + str(run) + ", exploration: " + str(exploration_rate) + ", score: " + str(step))
                 break
             dqn_solver.experience_replay()
+        exploration_rate *= EXPLORATION_DECAY
+        exploration_rate = max(EXPLORATION_MIN, exploration_rate)
 
 if __name__ == "__main__":
 
