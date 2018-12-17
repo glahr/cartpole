@@ -27,7 +27,7 @@ MAX_EPOCHS = 40
 
 class DQNSolver:
 
-    def __init__(self, observation_space, action_space):
+    def __init__(self, observation_space, action_space, q_remember):
         self.exploration_rate = EXPLORATION_MAX
         self.action_space = action_space
         self.memory = deque(maxlen=MEMORY_SIZE)
@@ -37,36 +37,47 @@ class DQNSolver:
         self.model.add(Dense(24, activation="relu"))
         self.model.add(Dense(self.action_space, activation="linear"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
+        self.q_remember = q_remember
 
         self.model_copy = None
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def experience_replay(self, q_remember):
-        print("entrei aqui")
-        if not q_remember.empty():
-            if len(self.memory) < BATCH_SIZE:
-                return
-            batch = random.sample(self.memory, BATCH_SIZE)
-            for state, action, reward, state_next, terminal in batch:
-                q_update = reward
-                if not terminal:
-                    q_update = (reward + GAMMA * np.amax(self.model.predict(state_next)[0]))
-                q_values = self.model.predict(state)
-                q_values[0][action] = q_update
+    def experience_replay(self):
+        if not self.q_remember.empty():
+            aux = q_remember.get()
+            state = aux[0]
+            action = aux[1]
+            reward = aux[2]
+            next_state = aux[3]
+            done = aux[4]
+            self.remember(state, action, reward, next_state, done)
 
-                self.model.fit(state, q_values, verbose=0)
+        if len(self.memory) < BATCH_SIZE:
+            return
+        batch = random.sample(self.memory, BATCH_SIZE)
+        for state, action, reward, state_next, terminal in batch:
+            q_update = reward
+            if not terminal:
+                q_update = (reward + GAMMA * np.amax(self.model.predict(state_next)[0]))
+            q_values = self.model.predict(state)
+            q_values[0][action] = q_update
 
-            self.exploration_rate *= EXPLORATION_DECAY
-            self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
-        else:
-            print("fila vazia, mano!")
+            self.model.fit(state, q_values, verbose=0)
+
+        # print("original = ", self.model.get_weights())
+
+        self.exploration_rate *= EXPLORATION_DECAY
+        self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
 
     def copy_keras_model(self):
         self.model_copy = keras.models.clone_model(self.model)
         self.model_copy.set_weights(self.model.get_weights())
         return self.model_copy
+
+    # def run(self):
+
 
 class DQNActions:
 
@@ -74,6 +85,7 @@ class DQNActions:
         self.exploration_rate = exploration_rate
         self.action_space = action_space
         self.model = model
+        # print("copied = ", self.model.get_weights())
 
     def act_mlp(self, state):
         if np.random.rand() < self.exploration_rate:
@@ -86,21 +98,14 @@ class DQNActions:
     # def remember(self, state, action, reward, next_state, done):
 
 
-def cartpole():
+def cartpole(q_remember):
     env = gym.make(ENV_NAME)
     observation_space = env.observation_space.shape[0]
     print("observation_space = ", observation_space)
     action_space = env.action_space.n
     print("action_space = ", action_space)
-    dqn_solver = DQNSolver(observation_space, action_space)
+    dqn_solver = DQNSolver(observation_space, action_space, q_remember)
     run = 0
-
-    # multiprocessing
-    q_remember = Queue()
-    process_train_mlp = Process(target=dqn_solver.experience_replay, args=(q_remember,))
-
-    process_train_mlp.start()
-
 
     while True:
     # while(run < MAX_EPOCHS):
@@ -116,19 +121,21 @@ def cartpole():
             #env.render()
 
             action = dqn_actions.act_mlp(state)
+            # print("action_copied = ", action)
             state_next, reward, terminal, info = env.step(action)
             reward = reward if not terminal else -reward
             state_next = np.reshape(state_next, [1, observation_space])
-            dqn_solver.remember(state, action, reward, state_next, terminal)
+            # dqn_solver.remember(state, action, reward, state_next, terminal)
+            q_remember.put([state, action, reward, state_next, terminal])
             state = state_next
             if terminal:
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 break
-
-        # dqn_solver.experience_replay()
-
-        dqn_solver.exploration_rate *= EXPLORATION_DECAY
-        dqn_solver.exploration_rate = max(EXPLORATION_MIN, dqn_solver.exploration_rate)
+            dqn_solver.experience_replay()
 
 if __name__ == "__main__":
-    cartpole()
+
+    # multiprocessing
+    q_remember = Queue()
+    process_train_mlp = Process(target=cartpole, args=(q_remember,))
+    process_train_mlp.start()
