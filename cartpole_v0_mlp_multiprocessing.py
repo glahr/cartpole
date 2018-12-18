@@ -2,11 +2,6 @@ import random
 import gym
 import numpy as np
 from collections import deque
-# import keras
-# from keras.models import Sequential
-# from keras.layers import Dense
-# from keras.optimizers import Adam
-# import tensorflow as tf
 import time
 from multiprocessing import Process, Queue
 
@@ -21,7 +16,7 @@ BATCH_SIZE = 20
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.995
-MAX_EPOCHS = 1000
+MAX_EPOCHS = 10
 
 observation_space = 4
 action_space = 2
@@ -97,21 +92,8 @@ class DQNSolver:
             #     print("counter_train = ", self.counter)
 
 
-        # print("original = ", self.model.get_weights())
-
-        # self.exploration_rate *= EXPLORATION_DECAY
-        # self.exploration_rate = max(EXPLORATION_MIN, self.exploration_rate)
-
-    # def copy_keras_model(self):
-            # self.model_copy = keras.models.clone_model(self.model)
-            # self.model_copy.set_weights(self.model.get_weights())
-            # print("\nantes")
         if self.q_net_weights.empty():
             self.q_net_weights.put(self.model.get_weights())
-            # print("\ndepois")
-        # return self.model_copy
-
-    # def run(self):
 
 
 class DQNActions:
@@ -136,14 +118,8 @@ class DQNActions:
         self.model.add(Dense(action_space, activation="linear"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
 
-        # self.exploration_rate = exploration_rate
         self.action_space = action_space
-        # self.model = keras.models.clone_model(model)
         self.q_net_weights = q_net_weights
-        # if not q_net_weights.empty():
-        #     self.model.set_weights(q_net_weights.get())
-
-        # print("copied = ", self.model.get_weights())
 
     def act_mlp(self, state, exploration_rate):
         if not self.q_net_weights.empty():
@@ -151,11 +127,8 @@ class DQNActions:
 
         if np.random.rand() < exploration_rate:
             return random.randrange(self.action_space)
-        # q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
-        # q_values = self.model.predict(state)
-        # print("antes")
+            
         q_values = self.model.predict(state)
-        # print("depois")
         return np.argmax(q_values[0])
 
     # def remember(self, state, action, reward, next_state, done):
@@ -172,7 +145,6 @@ def cartpole(q_remember, q_net_weights, flag_finished):
     print("observation_space = ", observation_space)
     # action_space = env.action_space.n
     print("action_space = ", action_space)
-    # dqn_solver = DQNSolver(observation_space, action_space, q_remember, q_net_weights)
     run = 0
 
     exploration_rate = EXPLORATION_MAX
