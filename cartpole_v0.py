@@ -5,8 +5,10 @@ from collections import deque
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
+import keras
 import tensorflow as tf
 import time
+import matplotlib.pyplot as plt
 
 # from scores.score_logger import ScoreLogger
 
@@ -23,6 +25,31 @@ EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.999
 MAX_EPOCHS = 40
 
+class MetricsCallbacksClass(keras.callbacks.Callback):
+    def __init__(self):
+        self.losses = []
+
+    def on_train_begin(self, logs={}):
+        return
+
+    def on_train_end(self, logs={}):
+        return
+
+    def on_epoch_begin(self, epoch, logs={}):
+        return
+
+    def on_epoch_end(self, epoch, logs={}):
+        return
+
+    def on_batch_begin(self, batch, logs={}):
+        return
+
+    def on_batch_end(self, batch, logs={}):
+        # self.loss = logs.get('loss')
+        # print(logs.get('loss'))
+        self.losses.append(logs.get('loss'))
+        return
+
 
 class DQNSolver:
 
@@ -36,6 +63,9 @@ class DQNSolver:
         self.model.add(Dense(24, activation="relu"))
         self.model.add(Dense(self.action_space, activation="linear"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
+
+        self.history = MetricsCallbacksClass()
+        self.tbCallback = keras.callbacks.TensorBoard(log_dir='./src/threading_gustavo/scripts/logs/tb')
 
 
         # # RNN
@@ -100,7 +130,10 @@ class DQNSolver:
             q_values[0][action] = q_update
 
             #And by storing, we mean, training with this new set our model: here is supervised learning
-            self.model.fit(state, q_values, verbose=0)
+            self.model.fit(state, q_values, verbose=0, callbacks = [self.history])
+            # self.model.fit(state, q_values, verbose=0, callbacks = [self.tbCallback])
+
+        # print(self.history.losses)
 
             #RNN train
             # print("state_reshape = ",state.reshape((1,1,4)))
@@ -165,6 +198,13 @@ def cartpole():
             if terminal: #if it is over, he plots the final condition and breaks the inner true loop
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 # score_logger.add_score(step, run) #this is his score logger, it is not needed
+                # print(dqn_solver.history.losses)
+                # if run % 15 == 0:
+                #     plt.figure()
+                #     plt.plot(dqn_solver.history.losses)
+                #     plt.show()
+                #     if run % 50 == 0:
+                #         dqn_solver.history.losses = []
                 break
             dqn_solver.experience_replay() #at the end of the step, he runs the experience replay to train
 

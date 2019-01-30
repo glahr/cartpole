@@ -22,8 +22,8 @@ BATCH_SIZE = 20
 
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
-EXPLORATION_DECAY = 0.999
-MAX_EPOCHS = 400
+EXPLORATION_DECAY = 0.9999
+MAX_EPOCHS = 2000
 
 # tensorboard = TensorBoard(log_dir="logs/1")
 
@@ -42,11 +42,12 @@ class DQNSolver:
         # self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
 
         self.model = Sequential()
-        self.model.add(LSTM(1, input_shape = (1, observation_space), return_sequences = True))
-        self.model.add(LSTM(1, return_sequences = True))
-        self.model.add(LSTM(1))
+        self.model.add(LSTM(20, input_shape = (1, observation_space), return_sequences = True))
+        # self.model.add(LSTM(1, return_sequences = True))
+        self.model.add(LSTM(15))
         self.model.add(Dense(action_space, activation = "relu"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
+        print("passando aqui")
 
         # keras.callbacks.TensorBoard(log_dir='./logs/1', update_freq='epoch')
 
@@ -74,7 +75,7 @@ class DQNSolver:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def act_mlp(self, state):
+    def act(self, state):
         #check if a random number is smaller than exploration_rate. If not, returns the prediction by the function approximator
         if np.random.rand() < self.exploration_rate:
             return random.randrange(self.action_space)
@@ -89,7 +90,7 @@ class DQNSolver:
     #     q_values = sess.run(self.fc, feed_dict={self.X: state.reshape((1,1,4))})
     #     return np.argmax(q_values[0])
 
-    def experience_replay(self): #, sess):
+    def experience_replay(self, run): #, sess):
         #if the memory has not at least BATCH_SIZE itens, we cannot train our network, due to the fact that we cannot sample that much. However, we are going to reach for the first batch when len(self.memory) = BATCH_SIZE + 1, i.e., we are going to sample experiences very close to each other.
         if len(self.memory) < BATCH_SIZE:
             return
@@ -113,6 +114,9 @@ class DQNSolver:
             #self.model.fit(state, q_values, verbose=0) #, callbacks = [tensorboard])
             self.model.fit(state, q_values, verbose=0) #, callbacks = [tensorboard])
             #self.model_rnn.fit(np.reshape(state,(1,4,1)), q_values, verbose = 0)
+            # if run % 10 == 0:
+            #     loss = self.model.evaluate(state, q_values, verbose = 0)
+            #     print(loss)
 
             #RNN train
             # sess.run(self.train_op, feed_dict = {self.X: state.reshape((1,1,4)), self.Y: q_values})
@@ -143,8 +147,8 @@ def cartpole():
     # merged = tf.summary.merge_all()
     # writer = tf.summary.FileWriter('tensorboard/3')
     # writer.add_graph(sess.graph)
-    while True:
-    # while(run < MAX_EPOCHS):
+    # while True:
+    while(run < MAX_EPOCHS):
         run += 1 #new episode
         state = env.reset()  # resetting the environment so it doesn't start with previous states
         state = np.reshape(state, [1, observation_space]) #reshaping for a row vector
@@ -159,7 +163,7 @@ def cartpole():
             step += 1
             #env.render()
             state = np.reshape(state,(1,1,4))
-            action = dqn_solver.act_mlp(state) #take an action based on the estimation of the dqn at state
+            action = dqn_solver.act(state) #take an action based on the estimation of the dqn at state
             # action_rnn = dqn_solver.act_rnn(state, sess) #mine
             # action = action_rnn
             state_next, reward, terminal, info = env.step(action) #return of the env.step call
@@ -171,7 +175,7 @@ def cartpole():
                 print ("Run: " + str(run) + ", exploration: " + str(dqn_solver.exploration_rate) + ", score: " + str(step))
                 # score_logger.add_score(step, run) #this is his score logger, it is not needed
                 break
-            dqn_solver.experience_replay() #at the end of the step, he runs the experience replay to train
+            dqn_solver.experience_replay(run) #at the end of the step, he runs the experience replay to train
 
 
 if __name__ == "__main__":

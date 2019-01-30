@@ -16,7 +16,7 @@ BATCH_SIZE = 20
 EXPLORATION_MAX = 1.0
 EXPLORATION_MIN = 0.01
 EXPLORATION_DECAY = 0.995
-MAX_EPOCHS = 10
+MAX_EPOCHS = 120
 
 observation_space = 4
 action_space = 2
@@ -45,11 +45,19 @@ class DQNSolver:
         self.action_space = action_space
         self.memory = deque(maxlen=MEMORY_SIZE)
 
+
+
         self.model = Sequential()
         self.model.add(Dense(24, input_shape=(observation_space,), activation="relu"))
         self.model.add(Dense(24, activation="relu"))
         self.model.add(Dense(self.action_space, activation="linear"))
         self.model.compile(loss="mse", optimizer=Adam(lr=LEARNING_RATE))
+
+
+
+
+
+
         self.q_remember = q_remember
         self.q_net_weights = q_net_weights
 
@@ -127,7 +135,7 @@ class DQNActions:
 
         if np.random.rand() < exploration_rate:
             return random.randrange(self.action_space)
-            
+
         q_values = self.model.predict(state)
         return np.argmax(q_values[0])
 
@@ -195,9 +203,9 @@ if __name__ == "__main__":
     finished = False
     process_simulation = Process(target=cartpole, args=(q_remember, q_net_weights, flag_finished))
     process_train_net = Process(target=train_net, args=(observation_space, action_space, q_remember, q_net_weights))
-    # process_simulation.start()
+    process_simulation.start()
     process_train_net.start()
-    cartpole(q_remember, q_net_weights, flag_finished)
+    # cartpole(q_remember, q_net_weights, flag_finished)
 
     # process_train_mlp.join()
     # process_simulation.join()
@@ -209,5 +217,5 @@ if __name__ == "__main__":
         # print(counter)
         # counter += 1
 
-    # process_simulation.terminate()
+    process_simulation.terminate()
     process_train_net.terminate()
